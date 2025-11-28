@@ -1,0 +1,72 @@
+trigger:
+- dev
+
+variables:
+  buildConfiguration: 'Release'
+  sonarQubeServiceConnection: 'ire-sonarqube'
+  sonarProjectKey: 'ire'
+  sonarProjectName: 'Weather Greeting API'
+
+  # Paths
+  solutionPath: '**/*.csproj'
+  projectPath: 'weathergreetingapi/**/*.csproj'
+  testProjectPath: '**/*Tests.csproj'
+  BuildPlatform: 'Any CPU'
+
+pool:
+  vmImage: 'windows-latest'
+
+steps:
+- checkout: self
+  fetchDepth: 0
+
+# 2. Prepare Analysis 
+- task: SonarQubePrepare@7
+  displayName: 'Prepare SonarQube Analysis'
+  inputs:
+    SonarQube: '$(sonarQubeServiceConnection)'
+    scannerMode: 'dotnet'
+    projectKey: '$(sonarProjectKey)'
+    projectName: '$(sonarProjectName)'
+    extraProperties: |
+      sonar.cs.opencover.reportsPaths=$(Agent.TempDirectory)/**/*.opencover.xml
+
+# 3. FIX: Remove Branch Name (Keep this for Community Edition!)
+- powershell: |
+    $params = "$env:SONARQUBE_SCANNER_PARAMS" -replace '"sonar.branch.name":"[\w,/,-.]*\"\,?'
+    Write-Host "##vso[task.setvariable variable=SONARQUBE_SCANNER_PARAMS]$params"
+  displayName: 'Fix: Remove Branch Name for Community Edition'
+
+# 4. Restore Dependencies
+- task: DotNetCoreCLI@2
+  displayName: 'DotNet Restore'
+  inputs:
+    command: 'restore'
+    projects: '$(solutionPath)'
+
+# 5. Build the Solution
+- task: VSBuild@1
+  displayName: 'Build Solution'
+  inputs:
+    solution: '$(solutionPath)'
+    platform: '$(BuildPlatform)'
+    configuration: '$(buildConfiguration)'
+
+# 6. Run Tests & Collect Coverage (Keep this!)
+- task: DotNetCoreCLI@2
+  displayName: 'Run Unit Tests with Coverage'
+  inputs:
+    command: 'test'
+    projects: '$(testProjectPath)'
+    arguments: '--configuration $(buildConfiguration) /p:CollectCoverage=true /p:CoverletOutputFormat=opencover /p:CoverletOutput="$(Agent.TempDirectory)/coverage/report.opencover.xml"'
+    publishTestResults: true
+
+# 7. Analyze 
+- task: SonarQubeAnalyze@7
+  displayName: 'Run Code Analysis'
+
+# 8. Publish 
+- task: SonarQubePublish@7
+  displayName: 'Publish Quality Gate Result'
+  inputs:
+    pollingTimeoutSec: 900
