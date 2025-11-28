@@ -31,13 +31,13 @@ steps:
     extraProperties: |
       sonar.cs.opencover.reportsPaths=$(Agent.TempDirectory)/**/*.opencover.xml
 
-# 3. FIX: Remove Branch Name (Keep this for Community Edition!)
+# 3. FIX: Remove Branch Name
 - powershell: |
     $params = "$env:SONARQUBE_SCANNER_PARAMS" -replace '"sonar.branch.name":"[\w,/,-.]*\"\,?'
     Write-Host "##vso[task.setvariable variable=SONARQUBE_SCANNER_PARAMS]$params"
   displayName: 'Fix: Remove Branch Name for Community Edition'
 
-# 4. Restore Dependencies
+# 4. Restore Dependencie
 - task: DotNetCoreCLI@2
   displayName: 'DotNet Restore'
   inputs:
