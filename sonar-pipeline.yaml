@@ -1,5 +1,5 @@
 trigger:
-- master
+- Dev
 
 variables:
   buildConfiguration: 'Release'
